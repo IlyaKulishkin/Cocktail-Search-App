@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cocktail Search</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+    <div class="container">
+        <button id="themeToggle" class="theme-toggle" title="Toggle Dark/Light Mode">🌞</button>
+        <button id="randomBtn" style="margin-bottom: 20px; background-color:#0077cc; color:white; border:none; padding:10px 15px; border-radius:5px; cursor:pointer;">
+            Get a Random Cocktail Idea
+        </button>
+        <h1>
+            Cocktail Search by
+            <span id="searchType" style="cursor:pointer; color:#005fa3; text-decoration:underline;">
+                Ingredient
+            </span>
+        </h1>
+
+        <form id="searchForm">
+            <input type="text" id="searchInput" placeholder="Enter ingredient" required />
+            <button type="submit">Search</button>
+        </form>
+        <div id="results"></div>
+
+        <!-- Modal window -->
+        <div id="modal" class="modal">
+          <div class="modal-content">
+            <span id="modal-close" class="close">&times;</span>
+            <div class="modal-body">
+              <div class="modal-top">
+                <div class="modal-image" id="modal-image">Picture</div>
+                <div class="modal-description" id="modal-description">Description</div>
+              </div>
+              <div class="modal-bottom" id="modal-recipe">Recepeit</div>
+            </div>
+          </div>
+        </div>
+    </div>
+
+    <script>
+        let searchByIngredient = true;
+        const searchTypeSpan = document.getElementById('searchType');
+        const searchInput = document.getElementById('searchInput');
+        const randomBtn = document.getElementById('randomBtn');
+        const modal = document.getElementById('modal');
+        const closeBtn = document.getElementById('modal-close');
+
+        searchTypeSpan.onclick = function() {
+            searchByIngredient = !searchByIngredient;
+            if (searchByIngredient) {
+                searchTypeSpan.textContent = 'Ingredient';
+                searchInput.placeholder = 'Enter ingredient';
+            } else {
+                searchTypeSpan.textContent = 'Name';
+                searchInput.placeholder = 'Enter cocktail name';
+            }
+        };
+
+        document.getElementById('searchForm').onsubmit = async function(e) {
+            e.preventDefault();
+            const query = searchInput.value;
+            let url = searchByIngredient ? '/cocktails?ingredient=' : '/cocktails_by_name?name=';
+            url += encodeURIComponent(query);
+            const response = await fetch(url);
+            const data = await response.json();
+            let html = '<h2>Results:</h2><ul class="cocktail-list">';
+            if(data.length === 0) {
+                html += '<li>No cocktails found.</li>';
+            } else {
+                data.forEach(cocktail => {
+                    html += `<li><a href="#" onclick="showDetails('${cocktail.idDrink}'); return false;">${cocktail.strDrink}</a></li>`;
+                });
+            }
+            html += '</ul><div id="details"></div>';
+            document.getElementById('results').innerHTML = html;
+        };
+
+        randomBtn.onclick = async function() {
+            const response = await fetch('/cocktail_random');
+            const cocktail = await response.json();
+            showDetails(cocktail.idDrink);
+        };
+
+        async function showDetails(id) {
+            const response = await fetch('/cocktail/' + id);
+            const cocktail = await response.json();
+
+            const modalImage = document.getElementById('modal-image');
+            const modalDescription = document.getElementById('modal-description');
+            const modalRecipe = document.getElementById('modal-recipe');
+
+            modalImage.innerHTML = `<img src="${cocktail.strDrinkThumb}" alt="${cocktail.strDrink}"/>`;
+            modalDescription.innerHTML = `<h3>${cocktail.strDrink}</h3>
+                                          <p><strong>Category:</strong> ${cocktail.strCategory}</p>
+                                          <p>${cocktail.strInstructions}</p>`;
+
+            let recipeHtml = '<h4>Ingredients:</h4><ul>';
+            for(let i=1; i<=15; i++) {
+                let ingredient = cocktail['strIngredient' + i];
+                let measure = cocktail['strMeasure' + i];
+                if(ingredient) {
+                    recipeHtml += `<li>${measure ? measure : ''} ${ingredient}</li>`;
+                }
+            }
+            recipeHtml += '</ul>';
+            modalRecipe.innerHTML = recipeHtml;
+
+            modal.style.display = 'block';
+        }
+
+        closeBtn.onclick = function() {
+            modal.style.display = 'none';
+        };
+
+        window.onclick = function(event) {
+            if(event.target === modal) {
+                modal.style.display = 'none';
+            }
+        };
+
+        const themeToggle = document.getElementById('themeToggle');
+
+        function setTheme(dark) {
+            if (dark) {
+                document.body.classList.add('dark-mode');
+                themeToggle.textContent = '🌜'; // луна
+                localStorage.setItem('darkMode', 'true');
+            } else {
+                document.body.classList.remove('dark-mode');
+                themeToggle.textContent = '🌞'; // солнце
+                localStorage.setItem('darkMode', 'false');
+            }
+        }
+
+        window.onload = () => {
+            const darkMode = localStorage.getItem('darkMode') === 'true';
+            setTheme(darkMode);
+        };
+
+        themeToggle.addEventListener('click', () => {
+            const isDark = document.body.classList.contains('dark-mode');
+            setTheme(!isDark);
+        });
+    </script>
+</body>
+</html>
